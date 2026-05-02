@@ -1,0 +1,52 @@
+# graph/schema.graphqls
+
+interface CalcEvent {
+  id: ID!
+  timestamp: String!
+}
+
+type DigitEntered implements CalcEvent { 
+  id: ID!
+  timestamp: String!
+  digit: String! 
+}
+
+type OperatorSelected implements CalcEvent {
+  id: ID!
+  timestamp: String!
+  operator: String!
+}
+
+type EqualsPressed implements CalcEvent {
+  id: ID!
+  timestamp: String!
+}
+
+type Cleared implements CalcEvent {
+  id: ID!
+  timestamp: String!
+}
+
+type CalculatorState {
+  displayValue: String!
+  storedValue: Float
+  currentOp: String
+  isNewInput: Boolean!
+}
+
+type Query {
+  currentState: CalculatorState!
+  eventHistory: [CalcEvent!]!
+}
+
+type Mutation {
+  pressDigit(digit: String!): Boolean!
+  pressOperator(operator: String!): Boolean!
+  pressEquals: Boolean!
+  pressClear: Boolean!
+  undo: Boolean!
+}
+
+type Subscription {
+  stateUpdated: CalculatorState!
+}
