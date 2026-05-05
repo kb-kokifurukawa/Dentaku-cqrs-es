@@ -9,23 +9,43 @@ import org.apache.pekko.persistence.typed.scaladsl.{Effect, EventSourcedBehavior
 // ==========================================
 trait CborSerializable
 
+// // ==========================================
+// // 2. Commands (BFFから受け取る命令)
+// // ==========================================
+// enum Command extends CborSerializable:
+//   case PressDigit(digit: String)
+//   case PressOperator(operator: String)
+//   case PressEquals
+//   case PressClear
+
+// // ==========================================
+// // 3. Events (DBに保存される過去の事実)
+// // ==========================================
+// enum CalcEvent extends CborSerializable:
+//   case DigitEntered(digit: String)
+//   case OperatorSelected(operator: String)
+//   case Calculated(result: String)
+//   case Cleared
+
 // ==========================================
 // 2. Commands (BFFから受け取る命令)
 // ==========================================
-enum Command extends CborSerializable:
-  case PressDigit(digit: String)
-  case PressOperator(operator: String)
-  case PressEquals
-  case PressClear
+sealed trait Command extends CborSerializable
+object Command:
+  case class PressDigit(digit: String) extends Command
+  case class PressOperator(operator: String) extends Command
+  case object PressEquals extends Command
+  case object PressClear extends Command
 
 // ==========================================
 // 3. Events (DBに保存される過去の事実)
 // ==========================================
-enum CalcEvent extends CborSerializable:
-  case DigitEntered(digit: String)
-  case OperatorSelected(operator: String)
-  case Calculated(result: String)
-  case Cleared
+sealed trait CalcEvent extends CborSerializable
+object CalcEvent:
+  case class DigitEntered(digit: String) extends CalcEvent
+  case class OperatorSelected(operator: String) extends CalcEvent
+  case class Calculated(result: String) extends CalcEvent
+  case object Cleared extends CalcEvent
 
 // ==========================================
 // 4. State (アクターがメモリ上に持つ現在の状態)
@@ -76,14 +96,18 @@ object Calculator:
               case _   => 0.0
             
             // 計算結果を "事実" としてDBに保存（persist）する
-            Effect.persist(CalcEvent.Calculated(result.toString))
+            Effect.persist(CalcEvent.Calculated(result.toString)).thenRun { newState =>
+              println(s"🎉 [計算完了!!] $stored $op $current = ${newState.displayValue} がDBに刻まれました！")
+            }
             
           case _ =>
             // 演算子がないのに `=` が押された場合は何もせず無視する
             Effect.none
 
       case Command.PressClear =>
-        Effect.persist(CalcEvent.Cleared)
+        Effect.persist(CalcEvent.Cleared).thenRun { _ =>
+          println(s"🧹 [クリア] 状態がリセットされました。")
+        }
 
   // ----------------------------------------------------
   // イベントハンドラー (State + Event -> NewState)
