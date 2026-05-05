@@ -9,113 +9,53 @@ import (
 	"context"
 	"dentaku-bff/graph/model"
 	"fmt"
-	"strconv"
+	"encoding/json"
+	"net/http"
+	"bytes"
 )
 
-// PressDigit is the resolver for the pressDigit field.
+// ==========================================
+// 🚀 Scala Write サーバーへコマンドを横流しするヘルパー関数
+// ==========================================
+func sendCommandToScala(path string, payload map[string]string) error {
+	url := "http://localhost:9000/command" + path
+	var jsonValue []byte
+	if payload != nil {
+		jsonValue, _ = json.Marshal(payload)
+	}
+
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonValue))
+	if err != nil {
+		return fmt.Errorf("failed to call Scala server: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+		return fmt.Errorf("Scala server returned status: %d", resp.StatusCode)
+	}
+	return nil
+}
+
 func (r *mutationResolver) PressDigit(ctx context.Context, digit string) (bool, error) {
-	r.Mu.Lock()
-	defer r.Mu.Unlock()
-
-	if r.State.IsNewInput {
-		r.State.DisplayValue = digit
-		r.State.IsNewInput = false
-	} else {
-		r.State.DisplayValue += digit
-	}
-
-	// ★ 状態が変更されたので通知
-	r.NotifyStateUpdated()
-
-	return true, nil
+	err := sendCommandToScala("/digit", map[string]string{"digit": digit})
+	return err == nil, err
 }
 
-// PressOperator is the resolver for the pressOperator field.
 func (r *mutationResolver) PressOperator(ctx context.Context, operator string) (bool, error) {
-	r.Mu.Lock()
-	defer r.Mu.Unlock()
-
-	// バリデーション: 許可された演算子かチェック
-	if operator != "+" && operator != "-" && operator != "*" && operator != "/" {
-		return false, fmt.Errorf("invalid operator: %s", operator)
-	}
-
-	// 現在の画面の値を数値に変換して退避
-	currentVal, err := strconv.ParseFloat(r.State.DisplayValue, 64)
-	if err != nil {
-		return false, fmt.Errorf("failed to parse display value: %v", err)
-	}
-
-	r.State.StoredValue = &currentVal
-	r.State.CurrentOp = &operator
-	r.State.IsNewInput = true // 次の数字入力は新規入力扱いにする
-
-	// ★ 状態が変更されたので通知
-	r.NotifyStateUpdated()
-
-	return true, nil
+	err := sendCommandToScala("/operator", map[string]string{"operator": operator})
+	return err == nil, err
 }
 
-// PressEquals is the resolver for the pressEquals field.
 func (r *mutationResolver) PressEquals(ctx context.Context) (bool, error) {
-	r.Mu.Lock()
-	defer r.Mu.Unlock()
-
-	// 演算子や退避された値がない場合は何もしない
-	if r.State.StoredValue == nil || r.State.CurrentOp == nil {
-		return false, nil
-	}
-
-	currentVal, err := strconv.ParseFloat(r.State.DisplayValue, 64)
-	if err != nil {
-		return false, fmt.Errorf("failed to parse display value: %v", err)
-	}
-
-	var result float64
-	switch *r.State.CurrentOp {
-	case "+":
-		result = *r.State.StoredValue + currentVal
-	case "-":
-		result = *r.State.StoredValue - currentVal
-	case "*":
-		result = *r.State.StoredValue * currentVal
-	case "/":
-		if currentVal == 0 {
-			return false, fmt.Errorf("division by zero")
-		}
-		result = *r.State.StoredValue / currentVal
-	default:
-		return false, fmt.Errorf("unknown operator: %s", *r.State.CurrentOp)
-	}
-
-	// 桁数をよしなにフォーマットして文字列に戻す（例: "24.5" など）
-	r.State.DisplayValue = strconv.FormatFloat(result, 'f', -1, 64)
-	r.State.StoredValue = nil
-	r.State.CurrentOp = nil
-	r.State.IsNewInput = true // 計算結果の後は新規入力待ちになる
-
-	// ★ 状態が変更されたので通知
-	r.NotifyStateUpdated()
-
-	return true, nil
+	err := sendCommandToScala("/equals", nil)
+	return err == nil, err
 }
 
-// PressClear is the resolver for the pressClear field.
 func (r *mutationResolver) PressClear(ctx context.Context) (bool, error) {
-	r.Mu.Lock()
-	defer r.Mu.Unlock()
-
-	// 状態をすべて初期化
-	r.State.DisplayValue = "0"
-	r.State.StoredValue = nil
-	r.State.CurrentOp = nil
-	r.State.IsNewInput = true
-
-	// ★ 状態が変更されたので通知
-	r.NotifyStateUpdated()
-
-	return true, nil
+	err := sendCommandToScala("/clear", nil)
+	return err == nil, err
 }
+
 
 // Undo is the resolver for the undo field.
 func (r *mutationResolver) Undo(ctx context.Context) (bool, error) {

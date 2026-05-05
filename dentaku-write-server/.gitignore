@@ -1,0 +1,17 @@
+# sbt / Scala 関連
+target/
+project/target/
+project/project/
+.bsp/
+.metals/
+.bloop/
+
+# IDE 関連
+.idea/
+*.iml
+.vscode/
+
+# データベースファイル (今回の CQRS 用)
+*.db
+*.db-shm
+*.db-wal
