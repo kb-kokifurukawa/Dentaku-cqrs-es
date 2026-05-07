@@ -12,7 +12,28 @@ import (
 	"encoding/json"
 	"net/http"
 	"bytes"
+	"time"
 )
+
+func fetchStateFromReadServer() (*model.CalculatorState, error) {
+	resp, err := http.Get("http://localhost:9001/state")
+	if err != nil {
+		return nil, fmt.Errorf("failed to call Read server: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var data struct {
+		DisplayValue string `json:"displayValue"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, err
+	}
+
+	// 画面表示に必要な displayValue だけを Read サーバーから取得して返す
+	return &model.CalculatorState{
+		DisplayValue: data.DisplayValue,
+	}, nil
+}
 
 // ==========================================
 // 🚀 Scala Write サーバーへコマンドを横流しするヘルパー関数
@@ -59,50 +80,52 @@ func (r *mutationResolver) PressClear(ctx context.Context) (bool, error) {
 
 // Undo is the resolver for the undo field.
 func (r *mutationResolver) Undo(ctx context.Context) (bool, error) {
-	panic(fmt.Errorf("not implemented: Undo - undo"))
+	// panic(fmt.Errorf("not implemented: Undo - undo"))
+	return false, nil // 今回は Mock なので nil を返しておく
 }
 
 // CurrentState は現在の状態を返します。
 func (r *queryResolver) CurrentState(ctx context.Context) (*model.CalculatorState, error) {
-	r.Mu.Lock()
-	defer r.Mu.Unlock()
-	return r.State, nil
+	return fetchStateFromReadServer()
 }
 
 // EventHistory is the resolver for the eventHistory field.
 func (r *queryResolver) EventHistory(ctx context.Context) ([]model.CalcEvent, error) {
-	panic(fmt.Errorf("not implemented: EventHistory - eventHistory"))
+	return nil, nil
 }
 
 // StateUpdated is the resolver for the stateUpdated field.
 func (r *subscriptionResolver) StateUpdated(ctx context.Context) (<-chan *model.CalculatorState, error) {
-	r.Mu.Lock()
-	defer r.Mu.Unlock()
-
-	// 1. クライアント専用のチャネルを作成（バッファサイズ1を持たせる）
 	ch := make(chan *model.CalculatorState, 1)
 
-	// 2. クライアントを識別する一意のIDを生成（今回は簡単のため UUID の代わりに番地などを使用）
-	id := fmt.Sprintf("%p", ch)
-	r.Subscribers[id] = ch
-
-	// 3. コネクションが切断されたときのクリーンアップ処理を登録
 	go func() {
-		<-ctx.Done()
-		r.Mu.Lock()
-		defer r.Mu.Unlock()
-		delete(r.Subscribers, id)
-		close(ch)
-	}()
+		defer close(ch)
+		var lastVal string
+		
+		// 0.5秒に1回、Readサーバーへ最新状態をポーリング（監視）しにいく
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
 
-	// 4. サブスクライブ直後に、現在の状態を1回 Push しておく（UX向上のため）
-	stateCopy := &model.CalculatorState{
-		DisplayValue: r.State.DisplayValue,
-		StoredValue:  r.State.StoredValue,
-		CurrentOp:    r.State.CurrentOp,
-		IsNewInput:   r.State.IsNewInput,
-	}
-	ch <- stateCopy
+		// 接続時の一発目
+		if initial, err := fetchStateFromReadServer(); err == nil {
+			lastVal = initial.DisplayValue
+			ch <- initial
+		}
+
+		for {
+			select {
+			case <-ctx.Done(): // クライアント(React)が切断した時
+				return
+			case <-ticker.C:
+				state, err := fetchStateFromReadServer()
+				// 前回から値が変わっていたら React にプッシュ通知！
+				if err == nil && state.DisplayValue != lastVal {
+					lastVal = state.DisplayValue
+					ch <- state
+				}
+			}
+		}
+	}()
 
 	return ch, nil
 }
