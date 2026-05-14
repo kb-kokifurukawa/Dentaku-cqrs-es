@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package calc.v1;
+
+option go_package = "dentaku-bff/internal/pb/calc/v1;calcv1";
+
+import "calc/v1/events.proto";
+
+service CommandService {
+  rpc PressDigit(PressDigitRequest) returns (PressDigitResponse);
+  rpc PressOperator(PressOperatorRequest) returns (PressOperatorResponse);
+  rpc PressEquals(PressEqualsRequest) returns (PressEqualsResponse);
+  rpc PressClear(PressClearRequest) returns (PressClearResponse);
+  rpc PressUndo(PressUndoRequest) returns (PressUndoResponse);
+}
+
+message PressDigitRequest {
+  string digit = 1;
+}
+message PressDigitResponse {}
+
+message PressOperatorRequest {
+  string operator = 1;
+}
+message PressOperatorResponse {}
+
+message PressEqualsRequest {}
+message PressEqualsResponse {}
+
+message PressClearRequest {}
+message PressClearResponse {}
+
+message PressUndoRequest {}
+message PressUndoResponse {}
+
+service EventStreamService {
+  rpc Subscribe(EventStreamServiceSubscribeRequest) returns (stream EventStreamServiceSubscribeResponse);
+}
+
+message EventStreamServiceSubscribeRequest {
+  string persistence_id = 1;
+  int64 from_seq_nr = 2;
+}
+
+message EventStreamServiceSubscribeResponse {
+  EventEnvelope envelope = 1;
+}
+
+service EventHistoryService {
+  rpc ListEvents(ListEventsRequest) returns (stream ListEventsResponse);
+}
+
+message ListEventsRequest {
+  string persistence_id = 1;
+}
+
+message ListEventsResponse {
+  EventEnvelope envelope = 1;
+}
