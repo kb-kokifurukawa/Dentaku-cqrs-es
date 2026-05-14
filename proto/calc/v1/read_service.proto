@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package calc.v1;
+
+option go_package = "dentaku-bff/internal/pb/calc/v1;calcv1";
+
+import "calc/v1/events.proto";
+
+service StateQueryService {
+  rpc GetState(GetStateRequest) returns (GetStateResponse);
+}
+
+message GetStateRequest {}
+
+message GetStateResponse {
+  CalculatorState state = 1;
+}
+
+service StateStreamService {
+  rpc Subscribe(StateStreamServiceSubscribeRequest) returns (stream StateStreamServiceSubscribeResponse);
+}
+
+message StateStreamServiceSubscribeRequest {}
+
+message StateStreamServiceSubscribeResponse {
+  CalculatorState state = 1;
+}
