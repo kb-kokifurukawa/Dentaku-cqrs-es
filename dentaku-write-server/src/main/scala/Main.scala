@@ -1,90 +1,87 @@
 package domain
 
-import org.apache.pekko.actor.typed.ActorSystem
+import calc.v1 as pb
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.grpc.scaladsl.ServiceHandler
 import org.apache.pekko.http.scaladsl.Http
-import org.apache.pekko.http.scaladsl.server.Directives._
-import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-import spray.json.DefaultJsonProtocol._
-import spray.json.RootJsonFormat
+import org.apache.pekko.http.scaladsl.model.{HttpRequest, HttpResponse}
+import org.apache.pekko.persistence.jdbc.query.scaladsl.JdbcReadJournal
+import org.apache.pekko.persistence.query.PersistenceQuery
+import org.apache.pekko.stream.scaladsl.Source
 
-import scala.util.{Failure, Success}
-
-// ==========================================
-// 1. JSONリクエストの型定義とパーサー
-// ==========================================
-case class DigitReq(digit: String)
-case class OperatorReq(operator: String)
-
-object JsonFormats {
-  // Scala 3 で Spray JSON を安全に使うためのおまじない (.apply を渡す)
-  implicit val digitFormat: RootJsonFormat[DigitReq] = jsonFormat1(DigitReq.apply)
-  implicit val operatorFormat: RootJsonFormat[OperatorReq] = jsonFormat1(OperatorReq.apply)
-}
+import scala.concurrent.Future
 
 // ==========================================
-// 2. エントリーポイント
+// gRPC service implementations
 // ==========================================
-object Main {
-  import JsonFormats._
+final class CommandServiceImpl(calculator: ActorRef[Command])(using system: ActorSystem[?])
+    extends pb.CommandService:
 
-  def main(args: Array[String]): Unit = {
-    // ルートアクター（システム全体を管理する親分）を定義
+  override def pressDigit(in: pb.PressDigitRequest): Future[pb.PressDigitResponse] =
+    calculator ! Command.PressDigit(in.digit)
+    Future.successful(pb.PressDigitResponse())
+
+  override def pressOperator(in: pb.PressOperatorRequest): Future[pb.PressOperatorResponse] =
+    calculator ! Command.PressOperator(in.operator)
+    Future.successful(pb.PressOperatorResponse())
+
+  override def pressEquals(in: pb.PressEqualsRequest): Future[pb.PressEqualsResponse] =
+    calculator ! Command.PressEquals
+    Future.successful(pb.PressEqualsResponse())
+
+  override def pressClear(in: pb.PressClearRequest): Future[pb.PressClearResponse] =
+    calculator ! Command.PressClear
+    Future.successful(pb.PressClearResponse())
+
+  override def pressUndo(in: pb.PressUndoRequest): Future[pb.PressUndoResponse] =
+    calculator ! Command.PressUndo
+    Future.successful(pb.PressUndoResponse())
+
+final class EventStreamServiceImpl(readJournal: JdbcReadJournal)(using ActorSystem[?])
+    extends pb.EventStreamService:
+
+  override def subscribe(
+      in: pb.EventStreamServiceSubscribeRequest
+  ): Source[pb.EventStreamServiceSubscribeResponse, NotUsed] =
+    readJournal
+      .eventsByPersistenceId(in.persistenceId, in.fromSeqNr, Long.MaxValue)
+      .map(env =>
+        pb.EventStreamServiceSubscribeResponse(envelope = Some(EventMapper.toProtoEnvelope(env)))
+      )
+
+final class EventHistoryServiceImpl(readJournal: JdbcReadJournal)(using ActorSystem[?])
+    extends pb.EventHistoryService:
+
+  override def listEvents(in: pb.ListEventsRequest): Source[pb.ListEventsResponse, NotUsed] =
+    readJournal
+      .currentEventsByPersistenceId(in.persistenceId, 0L, Long.MaxValue)
+      .map(env => pb.ListEventsResponse(envelope = Some(EventMapper.toProtoEnvelope(env))))
+
+// ==========================================
+// Entry point
+// ==========================================
+object Main:
+  def main(args: Array[String]): Unit =
     val rootBehavior = Behaviors.setup[Nothing] { context =>
-      
-      // 1. 電卓アクターを1つ生成（IDを "calc-1" とする）
+      given system: ActorSystem[Nothing] = context.system
+
       val calculator = context.spawn(Calculator("calc-1"), "CalculatorActor")
+      val readJournal =
+        PersistenceQuery(system).readJournalFor[JdbcReadJournal](JdbcReadJournal.Identifier)
 
-      // 2. HTTPのルーティング（APIエンドポイント）を定義
-      val route =
-        pathPrefix("command") {
-          concat(
-            // POST http://localhost:9000/command/digit
-            path("digit") {
-              post {
-                entity(as[DigitReq]) { req =>
-                  // アクターにメッセージを「投げ捨てる」（Fire and Forget: `!` メソッド）
-                  calculator ! Command.PressDigit(req.digit)
-                  complete("Accepted")
-                }
-              }
-            },
-            // POST http://localhost:9000/command/operator
-            path("operator") {
-              post {
-                entity(as[OperatorReq]) { req =>
-                  calculator ! Command.PressOperator(req.operator)
-                  complete("Accepted")
-                }
-              }
-            },
-            // POST http://localhost:9000/command/equals
-            path("equals") {
-              post {
-                calculator ! Command.PressEquals
-                complete("Accepted")
-              }
-            },
-            // POST http://localhost:9000/command/clear
-            path("clear") {
-              post {
-                calculator ! Command.PressClear
-                complete("Accepted")
-              }
-            }
-          )
-        }
+      val handler: HttpRequest => Future[HttpResponse] = ServiceHandler.concatOrNotFound(
+        pb.CommandServiceHandler.partial(new CommandServiceImpl(calculator)),
+        pb.EventStreamServiceHandler.partial(new EventStreamServiceImpl(readJournal)),
+        pb.EventHistoryServiceHandler.partial(new EventHistoryServiceImpl(readJournal))
+      )
 
-      // 3. HTTPサーバーの起動（ポート9000を使用）
-      implicit val system = context.system
-      val bindingFuture = Http().newServerAt("localhost", 9000).bind(route)
-      
-      context.log.info("🚀 Write Server is online at http://localhost:9000/")
+      Http().newServerAt("0.0.0.0", 9000).bind(handler)
+
+      context.log.info("🚀 Write gRPC Server is online at 0.0.0.0:9000")
 
       Behaviors.empty
     }
 
-    // ActorSystemを起動！
     ActorSystem[Nothing](rootBehavior, "DentakuWriteSystem")
-  }
-}
