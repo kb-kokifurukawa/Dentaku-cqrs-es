@@ -1,101 +1,178 @@
 package domain
 
+import calc.v1 as pb
+import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
-import org.apache.pekko.persistence.jdbc.query.scaladsl.JdbcReadJournal
-import org.apache.pekko.persistence.query.PersistenceQuery
-import org.apache.pekko.stream.scaladsl.Sink
+import org.apache.pekko.grpc.GrpcClientSettings
+import org.apache.pekko.grpc.scaladsl.ServiceHandler
 import org.apache.pekko.http.scaladsl.Http
-import org.apache.pekko.http.scaladsl.server.Directives._
-import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-import spray.json.DefaultJsonProtocol._
-import spray.json.RootJsonFormat
+import org.apache.pekko.http.scaladsl.model.{HttpRequest, HttpResponse}
+import org.apache.pekko.stream.OverflowStrategy
+import org.apache.pekko.stream.scaladsl.{BroadcastHub, Keep, Sink, Source}
 
-import java.sql.DriverManager
+import java.sql.{DriverManager, Types}
+import java.util.concurrent.atomic.AtomicReference
+import org.slf4j.LoggerFactory
+import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
-// BFF に返す JSON の型
-case class StateResponse(displayValue: String)
-object StateResponse {
-  // implicit val format = jsonFormat1(StateResponse.apply)
-  implicit val format: RootJsonFormat[StateResponse] = jsonFormat1(StateResponse.apply)
-}
+// ==========================================
+// Read DB ヘルパー
+// ==========================================
+object ReadDb:
+  def initialize(dbUrl: String): Unit =
+    val conn = DriverManager.getConnection(dbUrl)
+    try
+      val stmt = conn.createStatement()
+      stmt.execute("DROP TABLE IF EXISTS calculator_view")
+      stmt.execute(
+        """CREATE TABLE calculator_view (
+          |  id INTEGER PRIMARY KEY,
+          |  display_value TEXT NOT NULL,
+          |  stored_value REAL,
+          |  current_op TEXT,
+          |  is_new_input INTEGER NOT NULL DEFAULT 1
+          |)""".stripMargin
+      )
+      stmt.execute("INSERT INTO calculator_view (id, display_value, is_new_input) VALUES (1, '0', 1)")
+    finally conn.close()
 
-object Main {
-  def main(args: Array[String]): Unit = {
-    ActorSystem[Nothing](Behaviors.setup[Nothing] { context =>
-      implicit val system = context.system
+  def update(dbUrl: String, state: WriteState): Unit =
+    val conn = DriverManager.getConnection(dbUrl)
+    try
+      val stmt = conn.prepareStatement(
+        "UPDATE calculator_view SET display_value=?, stored_value=?, current_op=?, is_new_input=? WHERE id=1"
+      )
+      stmt.setString(1, state.displayValue)
+      state.storedValue match
+        case Some(v) => stmt.setDouble(2, v)
+        case None    => stmt.setNull(2, Types.REAL)
+      state.currentOp match
+        case Some(o) => stmt.setString(3, o)
+        case None    => stmt.setNull(3, Types.VARCHAR)
+      stmt.setInt(4, if state.isNewInput then 1 else 0)
+      stmt.executeUpdate()
+    finally conn.close()
 
-      // ==========================================
-      // 1. Read DB (SQLite) 操作用のヘルパー関数
-      // ==========================================
-      val dbUrl = context.system.settings.config.getString("read-db.url")
+  def read(dbUrl: String): pb.CalculatorState =
+    val conn = DriverManager.getConnection(dbUrl)
+    try
+      val stmt = conn.prepareStatement(
+        "SELECT display_value, stored_value, current_op, is_new_input FROM calculator_view WHERE id=1"
+      )
+      val rs = stmt.executeQuery()
+      if rs.next() then
+        val sv = rs.getObject("stored_value")
+        val co = rs.getString("current_op")
+        pb.CalculatorState(
+          displayValue = rs.getString("display_value"),
+          storedValue = if sv == null then None else Some(sv.asInstanceOf[Number].doubleValue),
+          currentOp = Option(co),
+          isNewInput = rs.getInt("is_new_input") == 1
+        )
+      else
+        pb.CalculatorState(displayValue = "0", isNewInput = true)
+    finally conn.close()
 
-      def updateDisplayValue(newValue: String): Unit = {
-        val conn = DriverManager.getConnection(dbUrl)
-        try {
-          val stmt = conn.prepareStatement("UPDATE calculator_view SET display_value = ? WHERE id = 1")
-          stmt.setString(1, newValue)
-          stmt.executeUpdate()
-        } finally {
-          conn.close()
-        }
-      }
+// ==========================================
+// gRPC service impls
+// ==========================================
+final class StateQueryServiceImpl(dbUrl: String)(using ActorSystem[?])
+    extends pb.StateQueryService:
 
-      def getDisplayValue(): String = {
-        val conn = DriverManager.getConnection(dbUrl)
-        try {
-          val stmt = conn.prepareStatement("SELECT display_value FROM calculator_view WHERE id = 1")
-          val rs = stmt.executeQuery()
-          if (rs.next()) rs.getString("display_value") else "0"
-        } finally {
-          conn.close()
-        }
-      }
+  override def getState(in: pb.GetStateRequest): Future[pb.GetStateResponse] =
+    Future.successful(pb.GetStateResponse(state = Some(ReadDb.read(dbUrl))))
 
-      // ==========================================
-      // 2. プロジェクション (Write DB -> Read DB の同期)
-      // ==========================================
-      // Write DB の変更を監視する "ReadJournal" を起動
-      val readJournal = PersistenceQuery(system).readJournalFor[JdbcReadJournal](JdbcReadJournal.Identifier)
-      
-      // "calc-1" のイベントを最初 (0L) から無限ストリームとして購読
-      readJournal
-        .eventsByPersistenceId("calc-1", 0L, Long.MaxValue)
-        .runWith(Sink.foreach { envelope =>
-          envelope.event match {
-            case CalcEvent.Calculated(res) =>
-              println(s"📥 [Read] Calculated($res) を検知！ Read DB を更新します。")
-              updateDisplayValue(res)
-              
-            case CalcEvent.DigitEntered(d) =>
-              // 本当は「新規入力か？」などの判定が必要ですが、今回は分かりやすく上書きで表現します
-              println(s"📥 [Read] DigitEntered($d) を検知！ Read DB を更新します。")
-              val current = getDisplayValue()
-              if (current == "0" || current.contains(".")) updateDisplayValue(d)
-              else updateDisplayValue(current + d)
-              
-            case CalcEvent.Cleared =>
-              println(s"📥 [Read] Cleared を検知！ Read DB をリセットします。")
-              updateDisplayValue("0")
-              
-            case _ => // OperatorSelected などは画面の数字は変わらないので Read DB は更新しない
-          }
+final class StateStreamServiceImpl(
+    broadcast: Source[pb.CalculatorState, NotUsed],
+    dbUrl: String
+)(using ActorSystem[?]) extends pb.StateStreamService:
+
+  override def subscribe(
+      in: pb.StateStreamServiceSubscribeRequest
+  ): Source[pb.StateStreamServiceSubscribeResponse, NotUsed] =
+    // 接続直後に現在状態を1発送ってから、以降の更新を流す
+    val current = Source.single(ReadDb.read(dbUrl))
+    current
+      .concat(broadcast)
+      .map(s => pb.StateStreamServiceSubscribeResponse(state = Some(s)))
+
+// ==========================================
+// Entry point
+// ==========================================
+object Main:
+  def main(args: Array[String]): Unit =
+    val behavior = Behaviors.setup[Nothing] { context =>
+      given system: ActorSystem[Nothing] = context.system
+      import system.executionContext
+
+      val config = system.settings.config
+      val dbUrl = config.getString("read-db.url")
+      val writeHost = config.getString("write-server.host")
+      val writePort = config.getInt("write-server.port")
+      val persistenceId = config.getString("projection.persistence-id")
+
+      // 1. Read DB を毎起動でリセット（冪等性は「常に初期状態から再生」で担保）
+      ReadDb.initialize(dbUrl)
+      context.log.info(s"🧹 Read DB initialized at $dbUrl")
+
+      // 2. Broadcast Hub: プロジェクションが publish、StateStream 購読者が consume
+      val (stateQueue, stateBroadcast) =
+        Source
+          .queue[pb.CalculatorState](256, OverflowStrategy.dropHead)
+          .toMat(BroadcastHub.sink[pb.CalculatorState](bufferSize = 16))(Keep.both)
+          .run()
+      // BroadcastHub は最低1つの subscriber が必要なので idle sink を繋いでおく
+      stateBroadcast.runWith(Sink.ignore)
+
+      // 3. プロジェクション用 in-memory state
+      val stateRef = new AtomicReference[WriteState](WriteState())
+
+      // 4. Write Server への gRPC クライアント
+      val writeClient = pb.EventStreamServiceClient(
+        GrpcClientSettings.connectToServiceAt(writeHost, writePort).withTls(false)
+      )
+
+      // 5. イベント購読 → projection → Read DB + broadcast
+      // 注: Stream のステージ内では ActorContext.log が使えない（別スレッドのため）。
+      // SLF4J Logger を直接掴んで使う。
+      val projectionLog = LoggerFactory.getLogger("ReadProjection")
+
+      val subscription = writeClient
+        .subscribe(
+          pb.EventStreamServiceSubscribeRequest(
+            persistenceId = persistenceId,
+            fromSeqNr = 0L
+          )
+        )
+        .runWith(Sink.foreach { resp =>
+          val envelope = resp.envelope.get
+          val event = EventMapper.fromProto(envelope.event.get)
+          val newState = Projection.handleEvent(stateRef.get(), event)
+          stateRef.set(newState)
+          ReadDb.update(dbUrl, newState)
+          stateQueue.offer(EventMapper.toProtoState(newState))
+          projectionLog.info(
+            s"📥 seq=${envelope.seqNr} event=$event → display=${newState.displayValue}"
+          )
         })
 
-      // ==========================================
-      // 3. HTTP サーバーの起動 (BFFへの提供用 API)
-      // ==========================================
-      val route = path("state") {
-        get {
-          // BFF からリクエストが来たら、Read DB の値をサクッと返すだけ！ (計算は一切しない)
-          complete(StateResponse(getDisplayValue()))
-        }
+      subscription.onComplete {
+        case Success(_) => projectionLog.info("Event subscription completed")
+        case Failure(e) => projectionLog.error("Event subscription failed", e)
       }
-      
-      Http().newServerAt("localhost", 9001).bind(route)
-      context.log.info("👀 Read Server is online at http://localhost:9001/")
+
+      // 6. gRPC サーバ起動（BFF が叩いてくる）
+      val handler: HttpRequest => Future[HttpResponse] = ServiceHandler.concatOrNotFound(
+        pb.StateQueryServiceHandler.partial(new StateQueryServiceImpl(dbUrl)),
+        pb.StateStreamServiceHandler.partial(new StateStreamServiceImpl(stateBroadcast, dbUrl))
+      )
+
+      Http().newServerAt("0.0.0.0", 9001).bind(handler)
+      context.log.info("👀 Read gRPC Server is online at 0.0.0.0:9001")
 
       Behaviors.empty
-    }, "DentakuReadSystem")
-  }
-}
+    }
+
+    ActorSystem[Nothing](behavior, "DentakuReadSystem")
