@@ -3,78 +3,44 @@ package domain
 import org.apache.pekko.persistence.typed.PersistenceId
 import org.apache.pekko.persistence.typed.scaladsl.{Effect, EventSourcedBehavior}
 
-// ==========================================
-// 1. マーカー・トレイト
-// (application.conf で "このトレイトを持つクラスはJSON/CBORに変換してDBに保存する" と設定するための目印)
-// ==========================================
 trait CborSerializable
 
-// // ==========================================
-// // 2. Commands (BFFから受け取る命令)
-// // ==========================================
-// enum Command extends CborSerializable:
-//   case PressDigit(digit: String)
-//   case PressOperator(operator: String)
-//   case PressEquals
-//   case PressClear
-
-// // ==========================================
-// // 3. Events (DBに保存される過去の事実)
-// // ==========================================
-// enum CalcEvent extends CborSerializable:
-//   case DigitEntered(digit: String)
-//   case OperatorSelected(operator: String)
-//   case Calculated(result: String)
-//   case Cleared
-
-// ==========================================
-// 2. Commands (BFFから受け取る命令)
-// ==========================================
 sealed trait Command extends CborSerializable
 object Command:
   case class PressDigit(digit: String) extends Command
   case class PressOperator(operator: String) extends Command
   case object PressEquals extends Command
   case object PressClear extends Command
+  case object PressUndo extends Command
 
-// ==========================================
-// 3. Events (DBに保存される過去の事実)
-// ==========================================
 sealed trait CalcEvent extends CborSerializable
 object CalcEvent:
   case class DigitEntered(digit: String) extends CalcEvent
   case class OperatorSelected(operator: String) extends CalcEvent
   case class Calculated(result: String) extends CalcEvent
   case object Cleared extends CalcEvent
+  case object Undone extends CalcEvent
 
-// ==========================================
-// 4. State (アクターがメモリ上に持つ現在の状態)
-// ==========================================
 case class WriteState(
   displayValue: String = "0",
   storedValue: Option[Double] = None,
   currentOp: Option[String] = None,
-  isNewInput: Boolean = true
-) extends CborSerializable
+  isNewInput: Boolean = true,
+  history: List[WriteState] = Nil
+) extends CborSerializable:
+  // history を持たない自分のコピー（履歴スタックに積む用）
+  def snapshot: WriteState = copy(history = Nil)
 
-// ==========================================
-// 5. アクターの実体 (EventSourcedBehavior)
-// ==========================================
 object Calculator:
 
-  // アクターの生成関数
   def apply(id: String): EventSourcedBehavior[Command, CalcEvent, WriteState] =
     EventSourcedBehavior[Command, CalcEvent, WriteState](
       persistenceId = PersistenceId.ofUniqueId(id),
-      emptyState = WriteState(), // 起動時の初期状態
+      emptyState = WriteState(),
       commandHandler = (state, command) => handleCommand(state, command),
       eventHandler = (state, event) => handleEvent(state, event)
     )
 
-  // ----------------------------------------------------
-  // 【Write側の真髄】 コマンドハンドラー (Command -> Effect[Event])
-  // 状態を見て「計算」や「バリデーション」を行い、発生させるイベントを決定する
-  // ----------------------------------------------------
   private def handleCommand(state: WriteState, command: Command): Effect[CalcEvent, WriteState] =
     command match
       case Command.PressDigit(d) =>
@@ -84,7 +50,6 @@ object Calculator:
         Effect.persist(CalcEvent.OperatorSelected(op))
 
       case Command.PressEquals =>
-        // ★ここで計算ロジックを実行！
         (state.storedValue, state.currentOp) match
           case (Some(stored), Some(op)) =>
             val current = state.displayValue.toDoubleOption.getOrElse(0.0)
@@ -94,37 +59,33 @@ object Calculator:
               case "*" => stored * current
               case "/" => if current != 0 then stored / current else 0.0
               case _   => 0.0
-            
-            // 計算結果を "事実" としてDBに保存（persist）する
-            Effect.persist(CalcEvent.Calculated(result.toString)).thenRun { newState =>
-              println(s"🎉 [計算完了!!] $stored $op $current = ${newState.displayValue} がDBに刻まれました！")
-            }
-            
+            Effect.persist(CalcEvent.Calculated(result.toString))
           case _ =>
-            // 演算子がないのに `=` が押された場合は何もせず無視する
             Effect.none
 
       case Command.PressClear =>
-        Effect.persist(CalcEvent.Cleared).thenRun { _ =>
-          println(s"🧹 [クリア] 状態がリセットされました。")
-        }
+        Effect.persist(CalcEvent.Cleared)
 
-  // ----------------------------------------------------
-  // イベントハンドラー (State + Event -> NewState)
-  // DBからイベントを復元した時や、persist成功後に、メモリ上の状態を更新する
-  // ※ここには絶対に「計算」や「外部API通信」などの副作用を書いてはいけない！
-  // ----------------------------------------------------
+      case Command.PressUndo =>
+        if state.history.isEmpty then Effect.none
+        else Effect.persist(CalcEvent.Undone)
+
   private def handleEvent(state: WriteState, event: CalcEvent): WriteState =
     event match
       case CalcEvent.DigitEntered(d) =>
-        if state.isNewInput then state.copy(displayValue = d, isNewInput = false)
-        else state.copy(displayValue = state.displayValue + d)
+        val newDisplay = if state.isNewInput then d else state.displayValue + d
+        state.copy(
+          displayValue = newDisplay,
+          isNewInput = false,
+          history = state.snapshot :: state.history
+        )
 
       case CalcEvent.OperatorSelected(op) =>
         state.copy(
           storedValue = state.displayValue.toDoubleOption,
           currentOp = Some(op),
-          isNewInput = true
+          isNewInput = true,
+          history = state.snapshot :: state.history
         )
 
       case CalcEvent.Calculated(res) =>
@@ -132,8 +93,14 @@ object Calculator:
           displayValue = res,
           storedValue = None,
           currentOp = None,
-          isNewInput = true
+          isNewInput = true,
+          history = state.snapshot :: state.history
         )
 
       case CalcEvent.Cleared =>
-        WriteState() // 初期状態のインスタンスを返す
+        WriteState(history = state.snapshot :: state.history)
+
+      case CalcEvent.Undone =>
+        state.history match
+          case prev :: rest => prev.copy(history = rest)
+          case Nil          => state
