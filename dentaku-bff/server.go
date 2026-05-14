@@ -2,6 +2,7 @@ package main
 
 import (
 	"dentaku-bff/graph"
+	calcv1 "dentaku-bff/internal/pb/calc/v1"
 	"log"
 	"net/http"
 	"os"
@@ -12,30 +13,61 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/lru"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
-	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/gorilla/websocket"
 	"github.com/rs/cors"
+	"github.com/vektah/gqlparser/v2/ast"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const defaultPort = "8080"
 
+func envOr(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
 func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = defaultPort
+	port := envOr("PORT", defaultPort)
+	writeAddr := envOr("WRITE_GRPC_ADDR", "localhost:9000")
+	readAddr := envOr("READ_GRPC_ADDR", "localhost:9001")
+	persistenceID := envOr("PERSISTENCE_ID", "calc-1")
+
+	// ==========================================
+	// gRPC clients
+	// ==========================================
+	writeConn, err := grpc.NewClient(writeAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("failed to connect to Write server %s: %v", writeAddr, err)
+	}
+	defer writeConn.Close()
+
+	readConn, err := grpc.NewClient(readAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("failed to connect to Read server %s: %v", readAddr, err)
+	}
+	defer readConn.Close()
+
+	resolver := &graph.Resolver{
+		WriteCommand:  calcv1.NewCommandServiceClient(writeConn),
+		WriteHistory:  calcv1.NewEventHistoryServiceClient(writeConn),
+		ReadQuery:     calcv1.NewStateQueryServiceClient(readConn),
+		ReadStream:    calcv1.NewStateStreamServiceClient(readConn),
+		PersistenceID: persistenceID,
 	}
 
-	// 先ほど作成したモック用のリゾルバを初期化
-	resolver := graph.NewResolver()
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
 
 	// ==========================================
-	// 1. WebSocket の設定 (Subscription 用)
+	// 1. WebSocket (Subscription)
 	// ==========================================
 	srv.AddTransport(&transport.Websocket{
 		KeepAlivePingInterval: 10 * time.Second,
 		Upgrader: websocket.Upgrader{
-			// 開発用：すべてのオリジン（localhost:5173等）からの接続を許可する
 			CheckOrigin: func(r *http.Request) bool {
 				return true
 			},
@@ -45,7 +77,7 @@ func main() {
 	})
 
 	// ==========================================
-	// 2. HTTP トランスポートの設定 (Mutation / Query 用)
+	// 2. HTTP (Mutation / Query)
 	// ==========================================
 	srv.AddTransport(transport.Options{})
 	srv.AddTransport(transport.GET{})
@@ -59,18 +91,18 @@ func main() {
 	})
 
 	// ==========================================
-	// 3. CORS ミドルウェアの設定
+	// 3. CORS
 	// ==========================================
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173"}, // React の開発サーバーを許可
+		AllowedOrigins:   []string{"http://localhost:5173"},
 		AllowCredentials: true,
 		AllowedHeaders:   []string{"Authorization", "Content-Type"},
-		// Debug: true, // CORS でハマった時はここを true にするとログが出ます
 	})
 
 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
 	http.Handle("/query", c.Handler(srv))
 
-	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
+	log.Printf("BFF listening on :%s (Write=%s, Read=%s, PersistenceID=%s)",
+		port, writeAddr, readAddr, persistenceID)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }

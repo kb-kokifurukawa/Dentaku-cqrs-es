@@ -8,125 +8,95 @@ package graph
 import (
 	"context"
 	"dentaku-bff/graph/model"
-	"fmt"
-	"encoding/json"
-	"net/http"
-	"bytes"
-	"time"
+	calcv1 "dentaku-bff/internal/pb/calc/v1"
+	"io"
 )
 
-func fetchStateFromReadServer() (*model.CalculatorState, error) {
-	resp, err := http.Get("http://localhost:9001/state")
-	if err != nil {
-		return nil, fmt.Errorf("failed to call Read server: %v", err)
-	}
-	defer resp.Body.Close()
-
-	var data struct {
-		DisplayValue string `json:"displayValue"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return nil, err
-	}
-
-	// 画面表示に必要な displayValue だけを Read サーバーから取得して返す
-	return &model.CalculatorState{
-		DisplayValue: data.DisplayValue,
-	}, nil
-}
-
-// ==========================================
-// 🚀 Scala Write サーバーへコマンドを横流しするヘルパー関数
-// ==========================================
-func sendCommandToScala(path string, payload map[string]string) error {
-	url := "http://localhost:9000/command" + path
-	var jsonValue []byte
-	if payload != nil {
-		jsonValue, _ = json.Marshal(payload)
-	}
-
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonValue))
-	if err != nil {
-		return fmt.Errorf("failed to call Scala server: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
-		return fmt.Errorf("Scala server returned status: %d", resp.StatusCode)
-	}
-	return nil
-}
-
+// PressDigit is the resolver for the pressDigit field.
 func (r *mutationResolver) PressDigit(ctx context.Context, digit string) (bool, error) {
-	err := sendCommandToScala("/digit", map[string]string{"digit": digit})
+	_, err := r.WriteCommand.PressDigit(ctx, &calcv1.PressDigitRequest{Digit: digit})
 	return err == nil, err
 }
 
+// PressOperator is the resolver for the pressOperator field.
 func (r *mutationResolver) PressOperator(ctx context.Context, operator string) (bool, error) {
-	err := sendCommandToScala("/operator", map[string]string{"operator": operator})
+	_, err := r.WriteCommand.PressOperator(ctx, &calcv1.PressOperatorRequest{Operator: operator})
 	return err == nil, err
 }
 
+// PressEquals is the resolver for the pressEquals field.
 func (r *mutationResolver) PressEquals(ctx context.Context) (bool, error) {
-	err := sendCommandToScala("/equals", nil)
+	_, err := r.WriteCommand.PressEquals(ctx, &calcv1.PressEqualsRequest{})
 	return err == nil, err
 }
 
+// PressClear is the resolver for the pressClear field.
 func (r *mutationResolver) PressClear(ctx context.Context) (bool, error) {
-	err := sendCommandToScala("/clear", nil)
+	_, err := r.WriteCommand.PressClear(ctx, &calcv1.PressClearRequest{})
 	return err == nil, err
 }
-
 
 // Undo is the resolver for the undo field.
 func (r *mutationResolver) Undo(ctx context.Context) (bool, error) {
-	// panic(fmt.Errorf("not implemented: Undo - undo"))
-	return false, nil // 今回は Mock なので nil を返しておく
+	_, err := r.WriteCommand.PressUndo(ctx, &calcv1.PressUndoRequest{})
+	return err == nil, err
 }
 
-// CurrentState は現在の状態を返します。
+// CurrentState is the resolver for the currentState field.
 func (r *queryResolver) CurrentState(ctx context.Context) (*model.CalculatorState, error) {
-	return fetchStateFromReadServer()
+	resp, err := r.ReadQuery.GetState(ctx, &calcv1.GetStateRequest{})
+	if err != nil {
+		return nil, err
+	}
+	return toGqlState(resp.GetState()), nil
 }
 
 // EventHistory is the resolver for the eventHistory field.
 func (r *queryResolver) EventHistory(ctx context.Context) ([]model.CalcEvent, error) {
-	return nil, nil
+	stream, err := r.WriteHistory.ListEvents(ctx, &calcv1.ListEventsRequest{
+		PersistenceId: r.PersistenceID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	events := make([]model.CalcEvent, 0)
+	for {
+		resp, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if gqlEvt := envelopeToGqlEvent(resp.GetEnvelope()); gqlEvt != nil {
+			events = append(events, gqlEvt)
+		}
+	}
+	return events, nil
 }
 
 // StateUpdated is the resolver for the stateUpdated field.
 func (r *subscriptionResolver) StateUpdated(ctx context.Context) (<-chan *model.CalculatorState, error) {
-	ch := make(chan *model.CalculatorState, 1)
+	stream, err := r.ReadStream.Subscribe(ctx, &calcv1.StateStreamServiceSubscribeRequest{})
+	if err != nil {
+		return nil, err
+	}
 
+	ch := make(chan *model.CalculatorState, 16)
 	go func() {
 		defer close(ch)
-		var lastVal string
-		
-		// 0.5秒に1回、Readサーバーへ最新状態をポーリング（監視）しにいく
-		ticker := time.NewTicker(500 * time.Millisecond)
-		defer ticker.Stop()
-
-		// 接続時の一発目
-		if initial, err := fetchStateFromReadServer(); err == nil {
-			lastVal = initial.DisplayValue
-			ch <- initial
-		}
-
 		for {
-			select {
-			case <-ctx.Done(): // クライアント(React)が切断した時
+			resp, err := stream.Recv()
+			if err != nil {
 				return
-			case <-ticker.C:
-				state, err := fetchStateFromReadServer()
-				// 前回から値が変わっていたら React にプッシュ通知！
-				if err == nil && state.DisplayValue != lastVal {
-					lastVal = state.DisplayValue
-					ch <- state
-				}
+			}
+			select {
+			case ch <- toGqlState(resp.GetState()):
+			case <-ctx.Done():
+				return
 			}
 		}
 	}()
-
 	return ch, nil
 }
 
@@ -142,18 +112,3 @@ func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionRes
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-/*
-	func (r *mutationResolver) CreateTodo(ctx context.Context, input model.NewTodo) (*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: CreateTodo - createTodo"))
-}
-func (r *queryResolver) Todos(ctx context.Context) ([]*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: Todos - todos"))
-}
-*/
