@@ -8,6 +8,16 @@ type CalcEvent interface {
 	GetTimestamp() string
 }
 
+type Calculated struct {
+	ID        string `json:"id"`
+	Timestamp string `json:"timestamp"`
+	Result    string `json:"result"`
+}
+
+func (Calculated) IsCalcEvent()              {}
+func (this Calculated) GetID() string        { return this.ID }
+func (this Calculated) GetTimestamp() string { return this.Timestamp }
+
 type CalculatorState struct {
 	DisplayValue string   `json:"displayValue"`
 	StoredValue  *float64 `json:"storedValue,omitempty"`
@@ -34,15 +44,6 @@ func (DigitEntered) IsCalcEvent()              {}
 func (this DigitEntered) GetID() string        { return this.ID }
 func (this DigitEntered) GetTimestamp() string { return this.Timestamp }
 
-type EqualsPressed struct {
-	ID        string `json:"id"`
-	Timestamp string `json:"timestamp"`
-}
-
-func (EqualsPressed) IsCalcEvent()              {}
-func (this EqualsPressed) GetID() string        { return this.ID }
-func (this EqualsPressed) GetTimestamp() string { return this.Timestamp }
-
 type Mutation struct {
 }
 
@@ -61,3 +62,12 @@ type Query struct {
 
 type Subscription struct {
 }
+
+type Undone struct {
+	ID        string `json:"id"`
+	Timestamp string `json:"timestamp"`
+}
+
+func (Undone) IsCalcEvent()              {}
+func (this Undone) GetID() string        { return this.ID }
+func (this Undone) GetTimestamp() string { return this.Timestamp }

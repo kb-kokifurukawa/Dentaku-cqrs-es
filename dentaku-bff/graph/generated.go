@@ -38,6 +38,12 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
+	Calculated struct {
+		ID        func(childComplexity int) int
+		Result    func(childComplexity int) int
+		Timestamp func(childComplexity int) int
+	}
+
 	CalculatorState struct {
 		CurrentOp    func(childComplexity int) int
 		DisplayValue func(childComplexity int) int
@@ -52,11 +58,6 @@ type ComplexityRoot struct {
 
 	DigitEntered struct {
 		Digit     func(childComplexity int) int
-		ID        func(childComplexity int) int
-		Timestamp func(childComplexity int) int
-	}
-
-	EqualsPressed struct {
 		ID        func(childComplexity int) int
 		Timestamp func(childComplexity int) int
 	}
@@ -82,6 +83,11 @@ type ComplexityRoot struct {
 
 	Subscription struct {
 		StateUpdated func(childComplexity int) int
+	}
+
+	Undone struct {
+		ID        func(childComplexity int) int
+		Timestamp func(childComplexity int) int
 	}
 }
 
@@ -113,6 +119,25 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 	ec := newExecutionContext(nil, e, nil)
 	_ = ec
 	switch typeName + "." + field {
+
+	case "Calculated.id":
+		if e.ComplexityRoot.Calculated.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Calculated.ID(childComplexity), true
+	case "Calculated.result":
+		if e.ComplexityRoot.Calculated.Result == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Calculated.Result(childComplexity), true
+	case "Calculated.timestamp":
+		if e.ComplexityRoot.Calculated.Timestamp == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Calculated.Timestamp(childComplexity), true
 
 	case "CalculatorState.currentOp":
 		if e.ComplexityRoot.CalculatorState.CurrentOp == nil {
@@ -170,19 +195,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.DigitEntered.Timestamp(childComplexity), true
-
-	case "EqualsPressed.id":
-		if e.ComplexityRoot.EqualsPressed.ID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.EqualsPressed.ID(childComplexity), true
-	case "EqualsPressed.timestamp":
-		if e.ComplexityRoot.EqualsPressed.Timestamp == nil {
-			break
-		}
-
-		return e.ComplexityRoot.EqualsPressed.Timestamp(childComplexity), true
 
 	case "Mutation.pressClear":
 		if e.ComplexityRoot.Mutation.PressClear == nil {
@@ -263,6 +275,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Subscription.StateUpdated(childComplexity), true
+
+	case "Undone.id":
+		if e.ComplexityRoot.Undone.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Undone.ID(childComplexity), true
+	case "Undone.timestamp":
+		if e.ComplexityRoot.Undone.Timestamp == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Undone.Timestamp(childComplexity), true
 
 	}
 	return 0, false
@@ -618,6 +643,75 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 
 // region    **************************** field.gotpl *****************************
 
+func (ec *executionContext) _Calculated_id(ctx context.Context, field graphql.CollectedField, obj *model.Calculated) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Calculated_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Calculated_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Calculated", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _Calculated_timestamp(ctx context.Context, field graphql.CollectedField, obj *model.Calculated) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Calculated_timestamp(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Timestamp, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Calculated_timestamp(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Calculated", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Calculated_result(ctx context.Context, field graphql.CollectedField, obj *model.Calculated) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Calculated_result(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Result, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Calculated_result(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Calculated", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _CalculatorState_displayValue(ctx context.Context, field graphql.CollectedField, obj *model.CalculatorState) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -823,52 +917,6 @@ func (ec *executionContext) _DigitEntered_digit(ctx context.Context, field graph
 }
 func (ec *executionContext) fieldContext_DigitEntered_digit(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("DigitEntered", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _EqualsPressed_id(ctx context.Context, field graphql.CollectedField, obj *model.EqualsPressed) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_EqualsPressed_id(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.ID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNID2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_EqualsPressed_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("EqualsPressed", field, false, false, errors.New("field of type ID does not have child fields"))
-}
-
-func (ec *executionContext) _EqualsPressed_timestamp(ctx context.Context, field graphql.CollectedField, obj *model.EqualsPressed) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_EqualsPressed_timestamp(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Timestamp, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_EqualsPressed_timestamp(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("EqualsPressed", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _Mutation_pressDigit(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1267,6 +1315,52 @@ func (ec *executionContext) fieldContext_Subscription_stateUpdated(_ context.Con
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _Undone_id(ctx context.Context, field graphql.CollectedField, obj *model.Undone) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Undone_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Undone_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Undone", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _Undone_timestamp(ctx context.Context, field graphql.CollectedField, obj *model.Undone) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Undone_timestamp(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Timestamp, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Undone_timestamp(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Undone", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
@@ -2336,6 +2430,13 @@ func (ec *executionContext) _CalcEvent(ctx context.Context, sel ast.SelectionSet
 	switch obj := (obj).(type) {
 	case nil:
 		return graphql.Null
+	case model.Undone:
+		return ec._Undone(ctx, sel, &obj)
+	case *model.Undone:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Undone(ctx, sel, obj)
 	case model.OperatorSelected:
 		return ec._OperatorSelected(ctx, sel, &obj)
 	case *model.OperatorSelected:
@@ -2343,13 +2444,6 @@ func (ec *executionContext) _CalcEvent(ctx context.Context, sel ast.SelectionSet
 			return graphql.Null
 		}
 		return ec._OperatorSelected(ctx, sel, obj)
-	case model.EqualsPressed:
-		return ec._EqualsPressed(ctx, sel, &obj)
-	case *model.EqualsPressed:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._EqualsPressed(ctx, sel, obj)
 	case model.DigitEntered:
 		return ec._DigitEntered(ctx, sel, &obj)
 	case *model.DigitEntered:
@@ -2364,6 +2458,13 @@ func (ec *executionContext) _CalcEvent(ctx context.Context, sel ast.SelectionSet
 			return graphql.Null
 		}
 		return ec._Cleared(ctx, sel, obj)
+	case model.Calculated:
+		return ec._Calculated(ctx, sel, &obj)
+	case *model.Calculated:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Calculated(ctx, sel, obj)
 	default:
 		if typedObj, ok := obj.(graphql.Marshaler); ok {
 			return typedObj
@@ -2376,6 +2477,55 @@ func (ec *executionContext) _CalcEvent(ctx context.Context, sel ast.SelectionSet
 // endregion ************************** interface.gotpl ***************************
 
 // region    **************************** object.gotpl ****************************
+
+var calculatedImplementors = []string{"Calculated", "CalcEvent"}
+
+func (ec *executionContext) _Calculated(ctx context.Context, sel ast.SelectionSet, obj *model.Calculated) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, calculatedImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Calculated")
+		case "id":
+			out.Values[i] = ec._Calculated_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "timestamp":
+			out.Values[i] = ec._Calculated_timestamp(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "result":
+			out.Values[i] = ec._Calculated_result(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
 
 var calculatorStateImplementors = []string{"CalculatorState"}
 
@@ -2492,50 +2642,6 @@ func (ec *executionContext) _DigitEntered(ctx context.Context, sel ast.Selection
 			}
 		case "digit":
 			out.Values[i] = ec._DigitEntered_digit(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
-
-	for label, dfs := range deferred {
-		ec.ProcessDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
-var equalsPressedImplementors = []string{"EqualsPressed", "CalcEvent"}
-
-func (ec *executionContext) _EqualsPressed(ctx context.Context, sel ast.SelectionSet, obj *model.EqualsPressed) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, equalsPressedImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("EqualsPressed")
-		case "id":
-			out.Values[i] = ec._EqualsPressed_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "timestamp":
-			out.Values[i] = ec._EqualsPressed_timestamp(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -2800,6 +2906,50 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 	default:
 		panic("unknown field " + strconv.Quote(fields[0].Name))
 	}
+}
+
+var undoneImplementors = []string{"Undone", "CalcEvent"}
+
+func (ec *executionContext) _Undone(ctx context.Context, sel ast.SelectionSet, obj *model.Undone) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, undoneImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Undone")
+		case "id":
+			out.Values[i] = ec._Undone_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "timestamp":
+			out.Values[i] = ec._Undone_timestamp(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
 }
 
 var __DirectiveImplementors = []string{"__Directive"}
