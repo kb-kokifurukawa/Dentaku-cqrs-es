@@ -41,6 +41,13 @@ object Calculator:
       eventHandler = (state, event) => handleEvent(state, event)
     )
 
+  private def computeOp(left: Double, op: String, right: Double): Double = op match
+    case "+" => left + right
+    case "-" => left - right
+    case "*" => left * right
+    case "/" => if right != 0 then left / right else 0.0
+    case _   => 0.0
+
   private def handleCommand(state: WriteState, command: Command): Effect[CalcEvent, WriteState] =
     command match
       case Command.PressDigit(d) =>
@@ -53,13 +60,7 @@ object Calculator:
         (state.storedValue, state.currentOp) match
           case (Some(stored), Some(op)) =>
             val current = state.displayValue.toDoubleOption.getOrElse(0.0)
-            val result = op match
-              case "+" => stored + current
-              case "-" => stored - current
-              case "*" => stored * current
-              case "/" => if current != 0 then stored / current else 0.0
-              case _   => 0.0
-            Effect.persist(CalcEvent.Calculated(result.toString))
+            Effect.persist(CalcEvent.Calculated(computeOp(stored, op, current).toString))
           case _ =>
             Effect.none
 
@@ -81,8 +82,20 @@ object Calculator:
         )
 
       case CalcEvent.OperatorSelected(op) =>
+        // 保留中の演算 (stored + op) があり、続けて数字が入力されている場合は
+        // 新しい op をセットする前にチェイン評価する。これが古い電卓の標準挙動。
+        val (newDisplay, newStored) =
+          (state.storedValue, state.currentOp, state.isNewInput) match
+            case (Some(stored), Some(prevOp), false) =>
+              val current = state.displayValue.toDoubleOption.getOrElse(0.0)
+              val r = computeOp(stored, prevOp, current)
+              (r.toString, Some(r))
+            case _ =>
+              (state.displayValue, state.displayValue.toDoubleOption)
+
         state.copy(
-          storedValue = state.displayValue.toDoubleOption,
+          displayValue = newDisplay,
+          storedValue = newStored,
           currentOp = Some(op),
           isNewInput = true,
           history = state.snapshot :: state.history
