@@ -5,9 +5,26 @@ import org.apache.pekko.persistence.typed.scaladsl.{Effect, EventSourcedBehavior
 
 trait CborSerializable
 
+enum Digit extends CborSerializable:
+  case Zero, One, Two, Three, Four, Five, Six, Seven, Eight, Nine, Dot
+
+object Digit:
+  def asChar(d: Digit): String = d match
+    case Zero  => "0"
+    case One   => "1"
+    case Two   => "2"
+    case Three => "3"
+    case Four  => "4"
+    case Five  => "5"
+    case Six   => "6"
+    case Seven => "7"
+    case Eight => "8"
+    case Nine  => "9"
+    case Dot   => "."
+
 sealed trait Command extends CborSerializable
 object Command:
-  case class PressDigit(digit: String) extends Command
+  case class PressDigit(digit: Digit) extends Command
   case class PressOperator(operator: String) extends Command
   case object PressEquals extends Command
   case object PressClear extends Command
@@ -15,7 +32,7 @@ object Command:
 
 sealed trait CalcEvent extends CborSerializable
 object CalcEvent:
-  case class DigitEntered(digit: String) extends CalcEvent
+  case class DigitEntered(digit: Digit) extends CalcEvent
   case class OperatorSelected(operator: String) extends CalcEvent
   case class Calculated(result: String) extends CalcEvent
   case object Cleared extends CalcEvent
@@ -74,7 +91,8 @@ object Calculator:
   private def handleEvent(state: WriteState, event: CalcEvent): WriteState =
     event match
       case CalcEvent.DigitEntered(d) =>
-        val newDisplay = if state.isNewInput then d else state.displayValue + d
+        val char = Digit.asChar(d)
+        val newDisplay = if state.isNewInput then char else state.displayValue + char
         state.copy(
           displayValue = newDisplay,
           isNewInput = false,

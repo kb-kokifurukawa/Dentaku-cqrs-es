@@ -6,8 +6,23 @@ option go_package = "dentaku-bff/internal/pb/calc/v1;calcv1";
 
 import "google/protobuf/timestamp.proto";
 
+enum Digit {
+  DIGIT_UNSPECIFIED = 0;
+  DIGIT_ZERO = 1;
+  DIGIT_ONE = 2;
+  DIGIT_TWO = 3;
+  DIGIT_THREE = 4;
+  DIGIT_FOUR = 5;
+  DIGIT_FIVE = 6;
+  DIGIT_SIX = 7;
+  DIGIT_SEVEN = 8;
+  DIGIT_EIGHT = 9;
+  DIGIT_NINE = 10;
+  DIGIT_DOT = 11;
+}
+
 message DigitEntered {
-  string digit = 1;
+  Digit digit = 1;
 }
 
 message OperatorSelected {

@@ -27,8 +27,9 @@ interface OnStateUpdatedData {
 }
 
 // 1. pressDigit (数字入力)
+type Digit = 'ZERO'|'ONE'|'TWO'|'THREE'|'FOUR'|'FIVE'|'SIX'|'SEVEN'|'EIGHT'|'NINE'|'DOT';
 interface PressDigitData { pressDigit: boolean; }
-interface PressDigitVars { digit: string; }
+interface PressDigitVars { digit: Digit; }
 
 // 2. pressOperator (演算子入力)
 interface PressOpData { pressOperator: boolean; }
@@ -40,7 +41,7 @@ interface PressClearData { pressClear: boolean; }
 interface UndoData { undo: boolean; }
 
 // 【Write側】各種コマンド（操作）
-const PRESS_DIGIT = gql`mutation PressDigit($digit: String!) { pressDigit(digit: $digit) }`;
+const PRESS_DIGIT = gql`mutation PressDigit($digit: Digit!) { pressDigit(digit: $digit) }`;
 const PRESS_OP = gql`mutation PressOp($operator: String!) { pressOperator(operator: $operator) }`;
 const PRESS_EQUALS = gql`mutation { pressEquals }`;
 const PRESS_CLEAR = gql`mutation { pressClear }`;
@@ -82,24 +83,24 @@ export default function App() {
         <button onClick={() => pressOp({ variables: { operator: '/' } })}>/</button>
         <button onClick={() => pressOp({ variables: { operator: '*' } })}>*</button>
 
-        <button onClick={() => pressDigit({ variables: { digit: '7' } })}>7</button>
-        <button onClick={() => pressDigit({ variables: { digit: '8' } })}>8</button>
-        <button onClick={() => pressDigit({ variables: { digit: '9' } })}>9</button>
+        <button onClick={() => pressDigit({ variables: { digit: 'SEVEN' } })}>7</button>
+        <button onClick={() => pressDigit({ variables: { digit: 'EIGHT' } })}>8</button>
+        <button onClick={() => pressDigit({ variables: { digit: 'NINE' } })}>9</button>
         <button onClick={() => pressOp({ variables: { operator: '-' } })}>-</button>
 
-        <button onClick={() => pressDigit({ variables: { digit: '4' } })}>4</button>
-        <button onClick={() => pressDigit({ variables: { digit: '5' } })}>5</button>
-        <button onClick={() => pressDigit({ variables: { digit: '6' } })}>6</button>
+        <button onClick={() => pressDigit({ variables: { digit: 'FOUR' } })}>4</button>
+        <button onClick={() => pressDigit({ variables: { digit: 'FIVE' } })}>5</button>
+        <button onClick={() => pressDigit({ variables: { digit: 'SIX' } })}>6</button>
         <button onClick={() => pressOp({ variables: { operator: '+' } })}>+</button>
 
-        <button onClick={() => pressDigit({ variables: { digit: '1' } })}>1</button>
-        <button onClick={() => pressDigit({ variables: { digit: '2' } })}>2</button>
-        <button onClick={() => pressDigit({ variables: { digit: '3' } })}>3</button>
+        <button onClick={() => pressDigit({ variables: { digit: 'ONE' } })}>1</button>
+        <button onClick={() => pressDigit({ variables: { digit: 'TWO' } })}>2</button>
+        <button onClick={() => pressDigit({ variables: { digit: 'THREE' } })}>3</button>
         {/* = ボタンは少し大きく */}
         <button onClick={() => pressEquals()} style={{ gridRow: 'span 2' }}>=</button>
 
-        <button onClick={() => pressDigit({ variables: { digit: '0' } })} style={{ gridColumn: 'span 2' }}>0</button>
-        <button onClick={() => pressDigit({ variables: { digit: '.' } })}>.</button>
+        <button onClick={() => pressDigit({ variables: { digit: 'ZERO' } })} style={{ gridColumn: 'span 2' }}>0</button>
+        <button onClick={() => pressDigit({ variables: { digit: 'DOT' } })}>.</button>
       </div>
     </div>
   );

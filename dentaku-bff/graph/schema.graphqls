@@ -1,5 +1,19 @@
 # graph/schema.graphqls
 
+enum Digit {
+  ZERO
+  ONE
+  TWO
+  THREE
+  FOUR
+  FIVE
+  SIX
+  SEVEN
+  EIGHT
+  NINE
+  DOT
+}
+
 interface CalcEvent {
   id: ID!
   timestamp: String!
@@ -8,7 +22,7 @@ interface CalcEvent {
 type DigitEntered implements CalcEvent {
   id: ID!
   timestamp: String!
-  digit: String!
+  digit: Digit!
 }
 
 type OperatorSelected implements CalcEvent {
@@ -46,7 +60,7 @@ type Query {
 }
 
 type Mutation {
-  pressDigit(digit: String!): Boolean!
+  pressDigit(digit: Digit!): Boolean!
   pressOperator(operator: String!): Boolean!
   pressEquals: Boolean!
   pressClear: Boolean!

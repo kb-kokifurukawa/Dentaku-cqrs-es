@@ -13,8 +13,8 @@ import (
 )
 
 // PressDigit is the resolver for the pressDigit field.
-func (r *mutationResolver) PressDigit(ctx context.Context, digit string) (bool, error) {
-	_, err := r.WriteCommand.PressDigit(ctx, &calcv1.PressDigitRequest{Digit: digit})
+func (r *mutationResolver) PressDigit(ctx context.Context, digit model.Digit) (bool, error) {
+	_, err := r.WriteCommand.PressDigit(ctx, &calcv1.PressDigitRequest{Digit: gqlDigitToProto(digit)})
 	return err == nil, err
 }
 
