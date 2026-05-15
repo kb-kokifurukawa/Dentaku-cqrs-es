@@ -23,7 +23,7 @@ const (
 
 type PressDigitRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Digit         string                 `protobuf:"bytes,1,opt,name=digit,proto3" json:"digit,omitempty"`
+	Digit         Digit                  `protobuf:"varint,1,opt,name=digit,proto3,enum=calc.v1.Digit" json:"digit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -58,11 +58,11 @@ func (*PressDigitRequest) Descriptor() ([]byte, []int) {
 	return file_calc_v1_write_service_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *PressDigitRequest) GetDigit() string {
+func (x *PressDigitRequest) GetDigit() Digit {
 	if x != nil {
 		return x.Digit
 	}
-	return ""
+	return Digit_DIGIT_UNSPECIFIED
 }
 
 type PressDigitResponse struct {
@@ -585,9 +585,9 @@ var File_calc_v1_write_service_proto protoreflect.FileDescriptor
 
 const file_calc_v1_write_service_proto_rawDesc = "" +
 	"\n" +
-	"\x1bcalc/v1/write_service.proto\x12\acalc.v1\x1a\x14calc/v1/events.proto\")\n" +
-	"\x11PressDigitRequest\x12\x14\n" +
-	"\x05digit\x18\x01 \x01(\tR\x05digit\"\x14\n" +
+	"\x1bcalc/v1/write_service.proto\x12\acalc.v1\x1a\x14calc/v1/events.proto\"9\n" +
+	"\x11PressDigitRequest\x12$\n" +
+	"\x05digit\x18\x01 \x01(\x0e2\x0e.calc.v1.DigitR\x05digit\"\x14\n" +
 	"\x12PressDigitResponse\"2\n" +
 	"\x14PressOperatorRequest\x12\x1a\n" +
 	"\boperator\x18\x01 \x01(\tR\boperator\"\x17\n" +
@@ -649,30 +649,32 @@ var file_calc_v1_write_service_proto_goTypes = []any{
 	(*EventStreamServiceSubscribeResponse)(nil), // 11: calc.v1.EventStreamServiceSubscribeResponse
 	(*ListEventsRequest)(nil),                   // 12: calc.v1.ListEventsRequest
 	(*ListEventsResponse)(nil),                  // 13: calc.v1.ListEventsResponse
-	(*EventEnvelope)(nil),                       // 14: calc.v1.EventEnvelope
+	(Digit)(0),                                  // 14: calc.v1.Digit
+	(*EventEnvelope)(nil),                       // 15: calc.v1.EventEnvelope
 }
 var file_calc_v1_write_service_proto_depIdxs = []int32{
-	14, // 0: calc.v1.EventStreamServiceSubscribeResponse.envelope:type_name -> calc.v1.EventEnvelope
-	14, // 1: calc.v1.ListEventsResponse.envelope:type_name -> calc.v1.EventEnvelope
-	0,  // 2: calc.v1.CommandService.PressDigit:input_type -> calc.v1.PressDigitRequest
-	2,  // 3: calc.v1.CommandService.PressOperator:input_type -> calc.v1.PressOperatorRequest
-	4,  // 4: calc.v1.CommandService.PressEquals:input_type -> calc.v1.PressEqualsRequest
-	6,  // 5: calc.v1.CommandService.PressClear:input_type -> calc.v1.PressClearRequest
-	8,  // 6: calc.v1.CommandService.PressUndo:input_type -> calc.v1.PressUndoRequest
-	10, // 7: calc.v1.EventStreamService.Subscribe:input_type -> calc.v1.EventStreamServiceSubscribeRequest
-	12, // 8: calc.v1.EventHistoryService.ListEvents:input_type -> calc.v1.ListEventsRequest
-	1,  // 9: calc.v1.CommandService.PressDigit:output_type -> calc.v1.PressDigitResponse
-	3,  // 10: calc.v1.CommandService.PressOperator:output_type -> calc.v1.PressOperatorResponse
-	5,  // 11: calc.v1.CommandService.PressEquals:output_type -> calc.v1.PressEqualsResponse
-	7,  // 12: calc.v1.CommandService.PressClear:output_type -> calc.v1.PressClearResponse
-	9,  // 13: calc.v1.CommandService.PressUndo:output_type -> calc.v1.PressUndoResponse
-	11, // 14: calc.v1.EventStreamService.Subscribe:output_type -> calc.v1.EventStreamServiceSubscribeResponse
-	13, // 15: calc.v1.EventHistoryService.ListEvents:output_type -> calc.v1.ListEventsResponse
-	9,  // [9:16] is the sub-list for method output_type
-	2,  // [2:9] is the sub-list for method input_type
-	2,  // [2:2] is the sub-list for extension type_name
-	2,  // [2:2] is the sub-list for extension extendee
-	0,  // [0:2] is the sub-list for field type_name
+	14, // 0: calc.v1.PressDigitRequest.digit:type_name -> calc.v1.Digit
+	15, // 1: calc.v1.EventStreamServiceSubscribeResponse.envelope:type_name -> calc.v1.EventEnvelope
+	15, // 2: calc.v1.ListEventsResponse.envelope:type_name -> calc.v1.EventEnvelope
+	0,  // 3: calc.v1.CommandService.PressDigit:input_type -> calc.v1.PressDigitRequest
+	2,  // 4: calc.v1.CommandService.PressOperator:input_type -> calc.v1.PressOperatorRequest
+	4,  // 5: calc.v1.CommandService.PressEquals:input_type -> calc.v1.PressEqualsRequest
+	6,  // 6: calc.v1.CommandService.PressClear:input_type -> calc.v1.PressClearRequest
+	8,  // 7: calc.v1.CommandService.PressUndo:input_type -> calc.v1.PressUndoRequest
+	10, // 8: calc.v1.EventStreamService.Subscribe:input_type -> calc.v1.EventStreamServiceSubscribeRequest
+	12, // 9: calc.v1.EventHistoryService.ListEvents:input_type -> calc.v1.ListEventsRequest
+	1,  // 10: calc.v1.CommandService.PressDigit:output_type -> calc.v1.PressDigitResponse
+	3,  // 11: calc.v1.CommandService.PressOperator:output_type -> calc.v1.PressOperatorResponse
+	5,  // 12: calc.v1.CommandService.PressEquals:output_type -> calc.v1.PressEqualsResponse
+	7,  // 13: calc.v1.CommandService.PressClear:output_type -> calc.v1.PressClearResponse
+	9,  // 14: calc.v1.CommandService.PressUndo:output_type -> calc.v1.PressUndoResponse
+	11, // 15: calc.v1.EventStreamService.Subscribe:output_type -> calc.v1.EventStreamServiceSubscribeResponse
+	13, // 16: calc.v1.EventHistoryService.ListEvents:output_type -> calc.v1.ListEventsResponse
+	10, // [10:17] is the sub-list for method output_type
+	3,  // [3:10] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_calc_v1_write_service_proto_init() }

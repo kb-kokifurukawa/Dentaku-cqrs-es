@@ -3,9 +3,26 @@ package domain
 // NOTE: dentaku-write-server の Calculator.scala の handleEvent と必ず同期させること。
 // 学習用プロジェクトのため意図的に重複させている（共有モジュール化は将来課題）。
 
+enum Digit:
+  case Zero, One, Two, Three, Four, Five, Six, Seven, Eight, Nine, Dot
+
+object Digit:
+  def asChar(d: Digit): String = d match
+    case Zero  => "0"
+    case One   => "1"
+    case Two   => "2"
+    case Three => "3"
+    case Four  => "4"
+    case Five  => "5"
+    case Six   => "6"
+    case Seven => "7"
+    case Eight => "8"
+    case Nine  => "9"
+    case Dot   => "."
+
 sealed trait CalcEvent
 object CalcEvent:
-  case class DigitEntered(digit: String) extends CalcEvent
+  case class DigitEntered(digit: Digit) extends CalcEvent
   case class OperatorSelected(operator: String) extends CalcEvent
   case class Calculated(result: String) extends CalcEvent
   case object Cleared extends CalcEvent
@@ -31,7 +48,8 @@ object Projection:
 
   def handleEvent(state: WriteState, event: CalcEvent): WriteState = event match
     case CalcEvent.DigitEntered(d) =>
-      val newDisplay = if state.isNewInput then d else state.displayValue + d
+      val char = Digit.asChar(d)
+      val newDisplay = if state.isNewInput then char else state.displayValue + char
       state.copy(
         displayValue = newDisplay,
         isNewInput = false,

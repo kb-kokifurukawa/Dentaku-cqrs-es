@@ -2,6 +2,13 @@
 
 package model
 
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"strconv"
+)
+
 type CalcEvent interface {
 	IsCalcEvent()
 	GetID() string
@@ -37,7 +44,7 @@ func (this Cleared) GetTimestamp() string { return this.Timestamp }
 type DigitEntered struct {
 	ID        string `json:"id"`
 	Timestamp string `json:"timestamp"`
-	Digit     string `json:"digit"`
+	Digit     Digit  `json:"digit"`
 }
 
 func (DigitEntered) IsCalcEvent()              {}
@@ -71,3 +78,76 @@ type Undone struct {
 func (Undone) IsCalcEvent()              {}
 func (this Undone) GetID() string        { return this.ID }
 func (this Undone) GetTimestamp() string { return this.Timestamp }
+
+type Digit string
+
+const (
+	DigitZero  Digit = "ZERO"
+	DigitOne   Digit = "ONE"
+	DigitTwo   Digit = "TWO"
+	DigitThree Digit = "THREE"
+	DigitFour  Digit = "FOUR"
+	DigitFive  Digit = "FIVE"
+	DigitSix   Digit = "SIX"
+	DigitSeven Digit = "SEVEN"
+	DigitEight Digit = "EIGHT"
+	DigitNine  Digit = "NINE"
+	DigitDot   Digit = "DOT"
+)
+
+var AllDigit = []Digit{
+	DigitZero,
+	DigitOne,
+	DigitTwo,
+	DigitThree,
+	DigitFour,
+	DigitFive,
+	DigitSix,
+	DigitSeven,
+	DigitEight,
+	DigitNine,
+	DigitDot,
+}
+
+func (e Digit) IsValid() bool {
+	switch e {
+	case DigitZero, DigitOne, DigitTwo, DigitThree, DigitFour, DigitFive, DigitSix, DigitSeven, DigitEight, DigitNine, DigitDot:
+		return true
+	}
+	return false
+}
+
+func (e Digit) String() string {
+	return string(e)
+}
+
+func (e *Digit) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = Digit(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid Digit", str)
+	}
+	return nil
+}
+
+func (e Digit) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *Digit) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e Digit) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}

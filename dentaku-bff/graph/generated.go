@@ -64,7 +64,7 @@ type ComplexityRoot struct {
 
 	Mutation struct {
 		PressClear    func(childComplexity int) int
-		PressDigit    func(childComplexity int, digit string) int
+		PressDigit    func(childComplexity int, digit model.Digit) int
 		PressEquals   func(childComplexity int) int
 		PressOperator func(childComplexity int, operator string) int
 		Undo          func(childComplexity int) int
@@ -92,7 +92,7 @@ type ComplexityRoot struct {
 }
 
 type MutationResolver interface {
-	PressDigit(ctx context.Context, digit string) (bool, error)
+	PressDigit(ctx context.Context, digit model.Digit) (bool, error)
 	PressOperator(ctx context.Context, operator string) (bool, error)
 	PressEquals(ctx context.Context) (bool, error)
 	PressClear(ctx context.Context) (bool, error)
@@ -212,7 +212,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Mutation.PressDigit(childComplexity, args["digit"].(string)), true
+		return e.ComplexityRoot.Mutation.PressDigit(childComplexity, args["digit"].(model.Digit)), true
 	case "Mutation.pressEquals":
 		if e.ComplexityRoot.Mutation.PressEquals == nil {
 			break
@@ -541,8 +541,8 @@ func (ec *executionContext) field_Mutation_pressDigit_args(ctx context.Context, 
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "digit",
-		func(ctx context.Context, v any) (string, error) {
-			return ec.unmarshalNString2string(ctx, v)
+		func(ctx context.Context, v any) (model.Digit, error) {
+			return ec.unmarshalNDigit2dentakuᚑbffᚋgraphᚋmodelᚐDigit(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -908,15 +908,15 @@ func (ec *executionContext) _DigitEntered_digit(ctx context.Context, field graph
 			return obj.Digit, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v model.Digit) graphql.Marshaler {
+			return ec.marshalNDigit2dentakuᚑbffᚋgraphᚋmodelᚐDigit(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_DigitEntered_digit(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("DigitEntered", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("DigitEntered", field, false, false, errors.New("field of type Digit does not have child fields"))
 }
 
 func (ec *executionContext) _Mutation_pressDigit(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -929,7 +929,7 @@ func (ec *executionContext) _Mutation_pressDigit(ctx context.Context, field grap
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Mutation().PressDigit(ctx, fc.Args["digit"].(string))
+			return ec.Resolvers.Mutation().PressDigit(ctx, fc.Args["digit"].(model.Digit))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
@@ -3341,6 +3341,16 @@ func (ec *executionContext) marshalNCalculatorState2ᚖdentakuᚑbffᚋgraphᚋm
 		return graphql.Null
 	}
 	return ec._CalculatorState(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNDigit2dentakuᚑbffᚋgraphᚋmodelᚐDigit(ctx context.Context, v any) (model.Digit, error) {
+	var res model.Digit
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNDigit2dentakuᚑbffᚋgraphᚋmodelᚐDigit(ctx context.Context, sel ast.SelectionSet, v model.Digit) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) unmarshalNID2string(ctx context.Context, v any) (string, error) {

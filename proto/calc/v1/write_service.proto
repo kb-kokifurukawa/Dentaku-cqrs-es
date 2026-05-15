@@ -15,7 +15,7 @@ service CommandService {
 }
 
 message PressDigitRequest {
-  string digit = 1;
+  Digit digit = 1;
 }
 message PressDigitResponse {}
 

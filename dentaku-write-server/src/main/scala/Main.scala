@@ -11,7 +11,9 @@ import org.apache.pekko.persistence.jdbc.query.scaladsl.JdbcReadJournal
 import org.apache.pekko.persistence.query.PersistenceQuery
 import org.apache.pekko.stream.scaladsl.Source
 
+import java.sql.DriverManager
 import scala.concurrent.Future
+import scala.io.Source as ScalaSource
 
 // ==========================================
 // gRPC service implementations
@@ -20,7 +22,7 @@ final class CommandServiceImpl(calculator: ActorRef[Command])(using system: Acto
     extends pb.CommandService:
 
   override def pressDigit(in: pb.PressDigitRequest): Future[pb.PressDigitResponse] =
-    calculator ! Command.PressDigit(in.digit)
+    calculator ! Command.PressDigit(EventMapper.digitFromProto(in.digit))
     Future.successful(pb.PressDigitResponse())
 
   override def pressOperator(in: pb.PressOperatorRequest): Future[pb.PressOperatorResponse] =
@@ -63,7 +65,21 @@ final class EventHistoryServiceImpl(readJournal: JdbcReadJournal)(using ActorSys
 // Entry point
 // ==========================================
 object Main:
+
+  // Pekko Persistence JDBC は SQLite 向けスキーマを auto-create しないので、
+  // 起動時に schema-sqlite.sql を適用する (CREATE TABLE IF NOT EXISTS なので冪等)
+  private def initializeJournalSchema(): Unit =
+    val source = ScalaSource.fromResource("schema-sqlite.sql")
+    val sql = try source.mkString finally source.close()
+    val conn = DriverManager.getConnection("jdbc:sqlite:write_side.db")
+    try
+      val stmt = conn.createStatement()
+      sql.split(";").map(_.trim).filter(_.nonEmpty).foreach(stmt.execute)
+    finally conn.close()
+
   def main(args: Array[String]): Unit =
+    initializeJournalSchema()
+
     val rootBehavior = Behaviors.setup[Nothing] { context =>
       given system: ActorSystem[Nothing] = context.system
 

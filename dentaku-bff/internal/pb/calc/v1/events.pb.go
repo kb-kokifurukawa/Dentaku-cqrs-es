@@ -22,9 +22,85 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type Digit int32
+
+const (
+	Digit_DIGIT_UNSPECIFIED Digit = 0
+	Digit_DIGIT_ZERO        Digit = 1
+	Digit_DIGIT_ONE         Digit = 2
+	Digit_DIGIT_TWO         Digit = 3
+	Digit_DIGIT_THREE       Digit = 4
+	Digit_DIGIT_FOUR        Digit = 5
+	Digit_DIGIT_FIVE        Digit = 6
+	Digit_DIGIT_SIX         Digit = 7
+	Digit_DIGIT_SEVEN       Digit = 8
+	Digit_DIGIT_EIGHT       Digit = 9
+	Digit_DIGIT_NINE        Digit = 10
+	Digit_DIGIT_DOT         Digit = 11
+)
+
+// Enum value maps for Digit.
+var (
+	Digit_name = map[int32]string{
+		0:  "DIGIT_UNSPECIFIED",
+		1:  "DIGIT_ZERO",
+		2:  "DIGIT_ONE",
+		3:  "DIGIT_TWO",
+		4:  "DIGIT_THREE",
+		5:  "DIGIT_FOUR",
+		6:  "DIGIT_FIVE",
+		7:  "DIGIT_SIX",
+		8:  "DIGIT_SEVEN",
+		9:  "DIGIT_EIGHT",
+		10: "DIGIT_NINE",
+		11: "DIGIT_DOT",
+	}
+	Digit_value = map[string]int32{
+		"DIGIT_UNSPECIFIED": 0,
+		"DIGIT_ZERO":        1,
+		"DIGIT_ONE":         2,
+		"DIGIT_TWO":         3,
+		"DIGIT_THREE":       4,
+		"DIGIT_FOUR":        5,
+		"DIGIT_FIVE":        6,
+		"DIGIT_SIX":         7,
+		"DIGIT_SEVEN":       8,
+		"DIGIT_EIGHT":       9,
+		"DIGIT_NINE":        10,
+		"DIGIT_DOT":         11,
+	}
+)
+
+func (x Digit) Enum() *Digit {
+	p := new(Digit)
+	*p = x
+	return p
+}
+
+func (x Digit) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Digit) Descriptor() protoreflect.EnumDescriptor {
+	return file_calc_v1_events_proto_enumTypes[0].Descriptor()
+}
+
+func (Digit) Type() protoreflect.EnumType {
+	return &file_calc_v1_events_proto_enumTypes[0]
+}
+
+func (x Digit) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Digit.Descriptor instead.
+func (Digit) EnumDescriptor() ([]byte, []int) {
+	return file_calc_v1_events_proto_rawDescGZIP(), []int{0}
+}
+
 type DigitEntered struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Digit         string                 `protobuf:"bytes,1,opt,name=digit,proto3" json:"digit,omitempty"`
+	Digit         Digit                  `protobuf:"varint,1,opt,name=digit,proto3,enum=calc.v1.Digit" json:"digit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -59,11 +135,11 @@ func (*DigitEntered) Descriptor() ([]byte, []int) {
 	return file_calc_v1_events_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *DigitEntered) GetDigit() string {
+func (x *DigitEntered) GetDigit() Digit {
 	if x != nil {
 		return x.Digit
 	}
-	return ""
+	return Digit_DIGIT_UNSPECIFIED
 }
 
 type OperatorSelected struct {
@@ -496,9 +572,9 @@ var File_calc_v1_events_proto protoreflect.FileDescriptor
 
 const file_calc_v1_events_proto_rawDesc = "" +
 	"\n" +
-	"\x14calc/v1/events.proto\x12\acalc.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"$\n" +
-	"\fDigitEntered\x12\x14\n" +
-	"\x05digit\x18\x01 \x01(\tR\x05digit\".\n" +
+	"\x14calc/v1/events.proto\x12\acalc.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"4\n" +
+	"\fDigitEntered\x12$\n" +
+	"\x05digit\x18\x01 \x01(\x0e2\x0e.calc.v1.DigitR\x05digit\".\n" +
 	"\x10OperatorSelected\x12\x1a\n" +
 	"\boperator\x18\x01 \x01(\tR\boperator\"$\n" +
 	"\n" +
@@ -528,7 +604,25 @@ const file_calc_v1_events_proto_rawDesc = "" +
 	"\fis_new_input\x18\x04 \x01(\bR\n" +
 	"isNewInputB\x0f\n" +
 	"\r_stored_valueB\r\n" +
-	"\v_current_opB(Z&dentaku-bff/internal/pb/calc/v1;calcv1b\x06proto3"
+	"\v_current_op*\xcd\x01\n" +
+	"\x05Digit\x12\x15\n" +
+	"\x11DIGIT_UNSPECIFIED\x10\x00\x12\x0e\n" +
+	"\n" +
+	"DIGIT_ZERO\x10\x01\x12\r\n" +
+	"\tDIGIT_ONE\x10\x02\x12\r\n" +
+	"\tDIGIT_TWO\x10\x03\x12\x0f\n" +
+	"\vDIGIT_THREE\x10\x04\x12\x0e\n" +
+	"\n" +
+	"DIGIT_FOUR\x10\x05\x12\x0e\n" +
+	"\n" +
+	"DIGIT_FIVE\x10\x06\x12\r\n" +
+	"\tDIGIT_SIX\x10\a\x12\x0f\n" +
+	"\vDIGIT_SEVEN\x10\b\x12\x0f\n" +
+	"\vDIGIT_EIGHT\x10\t\x12\x0e\n" +
+	"\n" +
+	"DIGIT_NINE\x10\n" +
+	"\x12\r\n" +
+	"\tDIGIT_DOT\x10\vB(Z&dentaku-bff/internal/pb/calc/v1;calcv1b\x06proto3"
 
 var (
 	file_calc_v1_events_proto_rawDescOnce sync.Once
@@ -542,31 +636,34 @@ func file_calc_v1_events_proto_rawDescGZIP() []byte {
 	return file_calc_v1_events_proto_rawDescData
 }
 
+var file_calc_v1_events_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_calc_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_calc_v1_events_proto_goTypes = []any{
-	(*DigitEntered)(nil),          // 0: calc.v1.DigitEntered
-	(*OperatorSelected)(nil),      // 1: calc.v1.OperatorSelected
-	(*Calculated)(nil),            // 2: calc.v1.Calculated
-	(*Cleared)(nil),               // 3: calc.v1.Cleared
-	(*Undone)(nil),                // 4: calc.v1.Undone
-	(*CalcEvent)(nil),             // 5: calc.v1.CalcEvent
-	(*EventEnvelope)(nil),         // 6: calc.v1.EventEnvelope
-	(*CalculatorState)(nil),       // 7: calc.v1.CalculatorState
-	(*timestamppb.Timestamp)(nil), // 8: google.protobuf.Timestamp
+	(Digit)(0),                    // 0: calc.v1.Digit
+	(*DigitEntered)(nil),          // 1: calc.v1.DigitEntered
+	(*OperatorSelected)(nil),      // 2: calc.v1.OperatorSelected
+	(*Calculated)(nil),            // 3: calc.v1.Calculated
+	(*Cleared)(nil),               // 4: calc.v1.Cleared
+	(*Undone)(nil),                // 5: calc.v1.Undone
+	(*CalcEvent)(nil),             // 6: calc.v1.CalcEvent
+	(*EventEnvelope)(nil),         // 7: calc.v1.EventEnvelope
+	(*CalculatorState)(nil),       // 8: calc.v1.CalculatorState
+	(*timestamppb.Timestamp)(nil), // 9: google.protobuf.Timestamp
 }
 var file_calc_v1_events_proto_depIdxs = []int32{
-	0, // 0: calc.v1.CalcEvent.digit_entered:type_name -> calc.v1.DigitEntered
-	1, // 1: calc.v1.CalcEvent.operator_selected:type_name -> calc.v1.OperatorSelected
-	2, // 2: calc.v1.CalcEvent.calculated:type_name -> calc.v1.Calculated
-	3, // 3: calc.v1.CalcEvent.cleared:type_name -> calc.v1.Cleared
-	4, // 4: calc.v1.CalcEvent.undone:type_name -> calc.v1.Undone
-	8, // 5: calc.v1.EventEnvelope.timestamp:type_name -> google.protobuf.Timestamp
-	5, // 6: calc.v1.EventEnvelope.event:type_name -> calc.v1.CalcEvent
-	7, // [7:7] is the sub-list for method output_type
-	7, // [7:7] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	0, // 0: calc.v1.DigitEntered.digit:type_name -> calc.v1.Digit
+	1, // 1: calc.v1.CalcEvent.digit_entered:type_name -> calc.v1.DigitEntered
+	2, // 2: calc.v1.CalcEvent.operator_selected:type_name -> calc.v1.OperatorSelected
+	3, // 3: calc.v1.CalcEvent.calculated:type_name -> calc.v1.Calculated
+	4, // 4: calc.v1.CalcEvent.cleared:type_name -> calc.v1.Cleared
+	5, // 5: calc.v1.CalcEvent.undone:type_name -> calc.v1.Undone
+	9, // 6: calc.v1.EventEnvelope.timestamp:type_name -> google.protobuf.Timestamp
+	6, // 7: calc.v1.EventEnvelope.event:type_name -> calc.v1.CalcEvent
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_calc_v1_events_proto_init() }
@@ -587,13 +684,14 @@ func file_calc_v1_events_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_calc_v1_events_proto_rawDesc), len(file_calc_v1_events_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_calc_v1_events_proto_goTypes,
 		DependencyIndexes: file_calc_v1_events_proto_depIdxs,
+		EnumInfos:         file_calc_v1_events_proto_enumTypes,
 		MessageInfos:      file_calc_v1_events_proto_msgTypes,
 	}.Build()
 	File_calc_v1_events_proto = out.File
